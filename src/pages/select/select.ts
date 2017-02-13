@@ -1,8 +1,8 @@
-import { AfterContentInit, Component,  ElementRef,  forwardRef,   OnDestroy, Optional,  Renderer,  ViewEncapsulation } from '@angular/core';
+import { AfterContentInit, Component, ElementRef, forwardRef, OnDestroy, Optional, Renderer, ViewEncapsulation } from '@angular/core';
 import { ControlValueAccessor, NG_VALUE_ACCESSOR } from '@angular/forms';
 
-import {  Alert, App, Config, Form, Item, NavController,  } from 'ionic-angular';
-import {   deepCopy } from 'ionic-angular/util/util';
+import { Alert, App, Config, Form, Item, NavController, } from 'ionic-angular';
+import { deepCopy } from 'ionic-angular/util/util';
 import { Select as ImportSelect } from 'ionic-angular/components/select/select';
 
 
@@ -59,9 +59,9 @@ export class Select extends TempSelect implements AfterContentInit, ControlValue
         if (!this._multi) {
             this.__options.forEach(option => {
                 option.ionSelect.subscribe(selectedValues => {
+                    this.onChange(selectedValues);
                     this.ionChange.emit(selectedValues);
                     this._isOpen = false;
-                    this.onChange(selectedValues);
                     this.overlay.dismiss();
                 });
             });
