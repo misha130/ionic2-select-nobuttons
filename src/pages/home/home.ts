@@ -8,7 +8,7 @@ import { deepCopy } from 'ionic-angular/util/util';
 })
 export class HomePage {
   private select: Select;
-  public test: any;
+  public test: any = "First";
   @ViewChild('select') public set ex(select: any | undefined) {
     this.select = select;
     if (select === undefined) return;
@@ -55,7 +55,6 @@ export class HomePage {
       selectOptions.title = (<any>this)._item.getLabelText();
     }
 
-    let options = (<any>this)._options.toArray();
 
 
     // default to use the alert interface

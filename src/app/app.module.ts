@@ -2,12 +2,12 @@ import { NgModule, ErrorHandler } from '@angular/core';
 import { IonicApp, IonicModule, IonicErrorHandler } from 'ionic-angular';
 import { MyApp } from './app.component';
 import { HomePage } from '../pages/home/home';
-import { Select } from '../pages/select/select';
+import { SelectAlertless } from '../pages/select/selectalertless';
 @NgModule({
   declarations: [
     MyApp,
     HomePage,
-    Select
+    SelectAlertless
   ],
   imports: [
     IonicModule.forRoot(MyApp)
@@ -16,6 +16,7 @@ import { Select } from '../pages/select/select';
   entryComponents: [
     MyApp,
     HomePage,
+    SelectAlertless
   ],
   providers: [{ provide: ErrorHandler, useClass: IonicErrorHandler }]
 })
