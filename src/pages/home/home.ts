@@ -82,7 +82,7 @@ export class HomePage {
     var selectCssClass = 'select-alert';
 
     // create the alert instance from our built up selectOptions
-    (<any>this).overlay = new Alert((<any>(<any>this))._app, selectOptions);
+    //(<any>this).overlay = new Alert((<any>(<any>this))._app, selectOptions);
 
     if ((<any>this)._multi) {
       // use checkboxes

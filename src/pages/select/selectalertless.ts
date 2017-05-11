@@ -1,39 +1,39 @@
 import { AfterContentInit, HostListener, ContentChildren, Component, ElementRef, forwardRef, OnDestroy, Optional, Renderer, Input, QueryList, Output, EventEmitter, ViewEncapsulation } from '@angular/core';
 import { ControlValueAccessor, NG_VALUE_ACCESSOR } from '@angular/forms';
 
-import { Alert, App, Config, Form, Item, NavController, Option } from 'ionic-angular';
+import { Alert, App, Config, Form, Item, NavController, Option, Ion, Events } from 'ionic-angular';
 import { isBlank, isCheckedProperty, isTrueProperty, deepCopy } from 'ionic-angular/util/util';
 
 export const SELECT_VALUE_ACCESSOR: any = {
-    provide: NG_VALUE_ACCESSOR,
-    useExisting: forwardRef(() => SelectAlertless),
-    multi: true
+	provide: NG_VALUE_ACCESSOR,
+	useExisting: forwardRef(() => SelectAlertless),
+	multi: true
 };
 
 @Component({
-    selector: 'select-alertless',
-    styles: ['.select-alertless .alert-button-group{display:none}'],
-    template:
-    '<div *ngIf="!_text" class="select-placeholder select-text">{{placeholder}}</div>' +
-    '<div *ngIf="_text" class="select-text">{{selectedText || _text}}</div>' +
-    '<div class="select-icon">' +
-    '<div class="select-icon-inner"></div>' +
-    '</div>' +
-    '<button aria-haspopup="true" ' +
-    '[id]="id" ' +
-    'ion-button="item-cover" ' +
-    '[attr.aria-labelledby]="_labelId" ' +
-    '[attr.aria-disabled]="_disabled" ' +
-    'class="item-cover">' +
-    '</button>',
-    host: {
-        '[class.select-disabled]': '_disabled'
-    },
-    providers: [SELECT_VALUE_ACCESSOR],
-    encapsulation: ViewEncapsulation.None,
+	selector: 'select-alertless',
+	styles: ['.select-alertless .alert-button-group{display:none}'],
+	template:
+	'<div *ngIf="!_text" class="select-placeholder select-text">{{placeholder}}</div>' +
+	'<div *ngIf="_text" class="select-text">{{selectedText || _text}}</div>' +
+	'<div class="select-icon">' +
+	'<div class="select-icon-inner"></div>' +
+	'</div>' +
+	'<button aria-haspopup="true" ' +
+	'[id]="id" ' +
+	'ion-button="item-cover" ' +
+	'[attr.aria-labelledby]="_labelId" ' +
+	'[attr.aria-disabled]="_disabled" ' +
+	'class="item-cover">' +
+	'</button>',
+	host: {
+		'[class.select-disabled]': '_disabled'
+	},
+	providers: [SELECT_VALUE_ACCESSOR],
+	encapsulation: ViewEncapsulation.None,
 })
-export class SelectAlertless implements AfterContentInit, ControlValueAccessor, OnDestroy {
-    	public id: string;
+export class SelectAlertless extends Ion implements AfterContentInit, ControlValueAccessor, OnDestroy {
+	public id: string;
 	public overlay: Alert;
 
 	private _disabled: any = false;
@@ -44,7 +44,7 @@ export class SelectAlertless implements AfterContentInit, ControlValueAccessor, 
 	private _text: string = '';
 	private _fn: Function;
 	private _isOpen: boolean = false;
-	private readonly _config: Config;
+	_config: Config;
 	// tslint:disable-next-line:variable-name
 	private __options: QueryList<Option>;
 
@@ -61,7 +61,7 @@ export class SelectAlertless implements AfterContentInit, ControlValueAccessor, 
 	constructor(
 		private _app: App,
 		private _form: Form,
-		config: Config,
+		private config: Config,
 		elementRef: ElementRef,
 		renderer: Renderer,
 		@Optional() public _item: Item,
@@ -70,7 +70,7 @@ export class SelectAlertless implements AfterContentInit, ControlValueAccessor, 
 	) {
 		super(config, elementRef, renderer, 'select');
 		this._config = config;
-		this.setElementClass(`${this.componentName}`, false);
+		this.setElementClass(`${this._componentName}`, false);
 
 		_form.register(this);
 
