@@ -33,291 +33,300 @@ export const SELECT_VALUE_ACCESSOR: any = {
     encapsulation: ViewEncapsulation.None,
 })
 export class SelectAlertless implements AfterContentInit, ControlValueAccessor, OnDestroy {
-    public id: string;
-    public overlay: Alert;
+    	public id: string;
+	public overlay: Alert;
 
-    private _disabled: any = false;
-    private _labelId: string;
-    private _multi: boolean = false;
-    private _values: string[] = [];
-    private _texts: string[] = [];
-    private _text: string = '';
-    private _fn: Function;
-    private _isOpen: boolean = false;
+	private _disabled: any = false;
+	private _labelId: string;
+	private _multi: boolean = false;
+	private _values: string[] = [];
+	private _texts: string[] = [];
+	private _text: string = '';
+	private _fn: Function;
+	private _isOpen: boolean = false;
+	private readonly _config: Config;
+	// tslint:disable-next-line:variable-name
+	private __options: QueryList<Option>;
 
-    private __options: QueryList<Option>;
+	@Input() public cancelText: string = 'Cancel';
+	@Input() public okText: string = 'OK';
+	@Input() public placeholder: string;
+	@Input() public selectOptions: any = {};
+	@Input() public interface: string = '';
+	@Input() public selectedText: string = '';
 
-    @Input() cancelText: string = 'Cancel';
-    @Input() okText: string = 'OK';
-    @Input() placeholder: string;
-    @Input() selectOptions: any = {};
-    @Input() interface: string = '';
-    @Input() selectedText: string = '';
+	@Output() public ionChange: EventEmitter<any> = new EventEmitter();
+	@Output() public ionCancel: EventEmitter<any> = new EventEmitter();
+	private close = () => (this.overlay ? this.overlay.dismiss() : '');
+	constructor(
+		private _app: App,
+		private _form: Form,
+		config: Config,
+		elementRef: ElementRef,
+		renderer: Renderer,
+		@Optional() public _item: Item,
+		@Optional() _nav: NavController,
+		events: Events,
+	) {
+		super(config, elementRef, renderer, 'select');
+		this._config = config;
+		this.setElementClass(`${this.componentName}`, false);
 
-    @Output() ionChange: EventEmitter<any> = new EventEmitter();
-    @Output() ionCancel: EventEmitter<any> = new EventEmitter();
+		_form.register(this);
 
-    constructor(
-        private _app: App,
-        private _form: Form,
-        config: Config,
-        elementRef: ElementRef,
-        renderer: Renderer,
-        @Optional() public _item: Item,
-        @Optional() _nav: NavController
-    ) {
-        _form.register(this);
+		if (_item) {
+			this.id = 'sel-' + _item.registerInput('select');
+			this._labelId = 'lbl-' + _item.id;
+			this._item.setElementClass('item-select', true);
+		}
+		events.unsubscribe('select:close', this.close);
+		events.subscribe('select:close', this.close);
+	}
 
-        if (_item) {
-            this.id = 'sel-' + _item.registerInput('select');
-            this._labelId = 'lbl-' + _item.id;
-            this._item.setElementClass('item-select', true);
-        }
-    }
+	@HostListener('click', ['$event'])
+	public _click(ev: UIEvent): void {
+		if (ev.detail === 0) {
+			// do not continue if the click event came from a form submit
+			return;
+		}
+		ev.preventDefault();
+		ev.stopPropagation();
+		this.open();
+	}
 
-    @HostListener('click', ['$event'])
-    _click(ev: UIEvent) {
-        if (ev.detail === 0) {
-            // do not continue if the click event came from a form submit
-            return;
-        }
-        ev.preventDefault();
-        ev.stopPropagation();
-        this.open();
-    }
+	@HostListener('keyup.space')
+	public _keyup(): void {
+		if (!this._isOpen) {
+			this.open();
+		}
+	}
 
-    @HostListener('keyup.space')
-    _keyup() {
-        if (!this._isOpen) {
-            this.open();
-        }
-    }
+	public set _options(val: any) {
+		this.__options = val;
+		if (!this._multi) {
+			this.__options.forEach(option => {
+				option.ionSelect.subscribe(selectedValues => {
+					try {
+						this.onChange(selectedValues);
+					}
+					catch (e) {
+						// do nothing
+					}
+					this.ionChange.emit(selectedValues);
+					this._isOpen = false;
+					this.overlay.dismiss();
+				});
+			});
+		}
+	}
 
-    public set _options(val) {
-        this.__options = val;
-        if (!this._multi) {
-            this.__options.forEach(option => {
-                option.ionSelect.subscribe(selectedValues => {
-                    try {
-                        this.onChange(selectedValues);
-                    }
-                    catch (e) {
+	public get _options(): any {
+		return this.__options;
+	}
 
-                    }
-                    this.ionChange.emit(selectedValues);
-                    this._isOpen = false;
-                    this.overlay.dismiss();
-                });
-            });
-        }
-    }
+	public open(): void {
+		if (this._disabled) {
+			return;
+		}
+		// the user may have assigned some options specifically for the alert
+		const selectOptions: any = deepCopy(this.selectOptions);
 
-    public get _options() {
-        return this.__options;
-    }
+		// make sure their buttons array is removed from the options
+		// and we create a new array for the alert's two buttons
+		selectOptions.buttons = [{
+			text: this.cancelText,
+			role: 'cancel',
+			handler: () => {
+				this.ionCancel.emit(null);
+			},
+		}];
 
-    open() {
-        if (this._disabled) {
-            return;
-        }
-        // the user may have assigned some options specifically for the alert
-        const selectOptions = deepCopy(this.selectOptions);
+		// if the selectOptions didn't provide a title then use the label's text
+		if (!selectOptions.title) {
+			selectOptions.title = this.placeholder;
+		}
 
-        // make sure their buttons array is removed from the options
-        // and we create a new array for the alert's two buttons
-        selectOptions.buttons = [{
-            text: this.cancelText,
-            role: 'cancel',
-            handler: () => {
-                this.ionCancel.emit(null);
-            }
-        }];
+		let options: any = this._options.toArray();
 
-        // if the selectOptions didn't provide a title then use the label's text
-        if (!selectOptions.title && this._item) {
-            selectOptions.title = this._item.getLabelText();
-        }
+		// default to use the alert interface
+		this.interface = 'alert';
 
-        let options = this._options.toArray();
+		// user cannot provide inputs from selectOptions
+		// alert inputs must be created by ionic from ion-options
+		selectOptions.inputs = this._options.map(input => {
+			return {
+				type: (this._multi ? 'checkbox' : 'radio'),
+				label: input.text,
+				value: input.value,
+				title: this.placeholder,
+				checked: input.selected,
+				disabled: input.disabled,
+				handler: (selectedOption: any) => {
+					// Only emit the select event if it is being checked
+					// For multi selects this won't emit when unchecking
+					if (selectedOption.checked) {
+						input.ionSelect.emit(input.value);
+					}
+				},
+			};
+		});
 
+		let selectCssClass: string = 'select-alert';
 
-        // default to use the alert interface
-        this.interface = 'alert';
+		// create the alert instance from our built up selectOptions
+		this.overlay = new Alert((<any>this)._app, selectOptions, this._config);
 
-        // user cannot provide inputs from selectOptions
-        // alert inputs must be created by ionic from ion-options
-        selectOptions.inputs = this._options.map(input => {
-            return {
-                type: (this._multi ? 'checkbox' : 'radio'),
-                label: input.text,
-                value: input.value,
-                checked: input.selected,
-                disabled: input.disabled,
-                handler: (selectedOption: any) => {
-                    // Only emit the select event if it is being checked
-                    // For multi selects this won't emit when unchecking
-                    if (selectedOption.checked) {
-                        input.ionSelect.emit(input.value);
-                    }
-                }
-            };
-        });
+		if (this._multi) {
+			// use checkboxes
+			selectCssClass += ' multiple-select-alert';
+		} else {
+			// use radio buttons
+			selectCssClass += ' single-select-alert select-alertless';
+		}
 
-        var selectCssClass = 'select-alert';
+		// If the user passed a cssClass for the select, add it
+		selectCssClass += selectOptions.cssClass ? ' ' + selectOptions.cssClass : '';
+		this.overlay.setCssClass(selectCssClass);
 
-        // create the alert instance from our built up selectOptions
-        this.overlay = new Alert((<any>this)._app, selectOptions);
+		this.overlay.addButton({
+			text: this.okText,
+			handler: (selectedValues: any) => {
+				this.onChange(selectedValues);
+				this.ionChange.emit(selectedValues);
+			},
+		});
 
-        if (this._multi) {
-            // use checkboxes
-            selectCssClass += ' multiple-select-alert';
-        } else {
-            // use radio buttons
-            selectCssClass += ' single-select-alert select-alertless';
-        }
+		this.overlay.present(selectOptions);
 
-        // If the user passed a cssClass for the select, add it
-        selectCssClass += selectOptions.cssClass ? ' ' + selectOptions.cssClass : '';
-        this.overlay.setCssClass(selectCssClass);
+		this._isOpen = true;
+		this.overlay.onDidDismiss(() => {
+			this._isOpen = false;
+		});
+	}
 
-        this.overlay.addButton({
-            text: this.okText,
-            handler: (selectedValues: any) => {
-                this.onChange(selectedValues);
-                this.ionChange.emit(selectedValues);
-            }
-        });
+	@Input()
+	get multiple(): any {
+		return this._multi;
+	}
 
+	set multiple(val: any) {
+		this._multi = isTrueProperty(val);
+	}
 
-        this.overlay.present(selectOptions);
+	get text(): string | string[] {
+		return (this._multi ? this._texts : this._texts.join());
+	}
 
-        this._isOpen = true;
-        this.overlay.onDidDismiss(() => {
-            this._isOpen = false;
-        });
-    }
+	@ContentChildren(Option)
+	set options(val: QueryList<Option>) {
+		this._options = val;
 
-    @Input()
-    get multiple(): any {
-        return this._multi;
-    }
+		if (!this._values.length) {
+			// there are no values set at this point
+			// so check to see who should be selected
+			this._values = val.filter(o => o.selected).map(o => o.value);
+		}
 
-    set multiple(val: any) {
-        this._multi = isTrueProperty(val);
-    }
+		this._updOpts();
+	}
 
-    get text() {
-        return (this._multi ? this._texts : this._texts.join());
-    }
+	public _updOpts(): void {
+		this._texts = [];
 
-    @ContentChildren(Option)
-    set options(val: QueryList<Option>) {
-        this._options = val;
+		if (this._options) {
+			this._options.forEach(option => {
+				// check this option if the option's value is in the values array
+				option.selected = this._values.some(selectValue => {
+					return isCheckedProperty(selectValue, option.value);
+				});
 
-        if (!this._values.length) {
-            // there are no values set at this point
-            // so check to see who should be selected
-            this._values = val.filter(o => o.selected).map(o => o.value);
-        }
+				if (option.selected) {
+					this._texts.push(option.text);
+				}
+			});
+		}
 
-        this._updOpts();
-    }
-
-    _updOpts() {
-        this._texts = [];
-
-        if (this._options) {
-            this._options.forEach(option => {
-                // check this option if the option's value is in the values array
-                option.selected = this._values.some(selectValue => {
-                    return isCheckedProperty(selectValue, option.value);
-                });
-
-                if (option.selected) {
-                    this._texts.push(option.text);
-                }
-            });
-        }
-
-        this._text = this._texts.join(', ');
-    }
+		this._text = this._texts.join(', ');
+	}
 
 	/**
 	 * @input {boolean} If true, the user cannot interact with this element.
 	 */
-    @Input()
-    get disabled(): boolean {
-        return this._disabled;
-    }
+	@Input()
+	get disabled(): boolean {
+		return this._disabled;
+	}
 
-    set disabled(val: boolean) {
-        this._disabled = isTrueProperty(val);
-        this._item && this._item.setElementClass('item-select-disabled', this._disabled);
-    }
-
-	/**
-	 * @private
-	 */
-    writeValue(val: any) {
-        console.debug('select, writeValue', val);
-        this._values = (Array.isArray(val) ? val : isBlank(val) ? [] : [val]);
-        this._updOpts();
-    }
+	set disabled(val: boolean) {
+		this._disabled = isTrueProperty(val);
+		this._item && this._item.setElementClass('item-select-disabled', this._disabled);
+	}
 
 	/**
 	 * @private
 	 */
-    ngAfterContentInit() {
-        this._updOpts();
-    }
+	public writeValue(val: any): void {
+		console.debug('select, writeValue', val);
+		this._values = (Array.isArray(val) ? val : isBlank(val) ? [] : [val]);
+		this._updOpts();
+	}
 
 	/**
 	 * @private
 	 */
-    registerOnChange(fn: Function): void {
-        this._fn = fn;
-        this.onChange = (val: any) => {
-            console.debug('select, onChange', val);
-            fn(val);
-            this._values = (Array.isArray(val) ? val : isBlank(val) ? [] : [val]);
-            this._updOpts();
-            this.onTouched();
-        };
-    }
+	public ngAfterContentInit(): void {
+		this._updOpts();
+	}
 
 	/**
 	 * @private
 	 */
-    registerOnTouched(fn: any) { this.onTouched = fn; }
+	public registerOnChange(fn: Function): void {
+		this._fn = fn;
+		this.onChange = (val: any) => {
+			console.debug('select, onChange', val);
+			fn(val);
+			this._values = (Array.isArray(val) ? val : isBlank(val) ? [] : [val]);
+			this._updOpts();
+			this.onTouched();
+		};
+	}
 
 	/**
 	 * @private
 	 */
-    onChange(val: any) {
-        // onChange used when there is not an formControlName
-        console.debug('select, onChange w/out formControlName', val);
-        this._values = (Array.isArray(val) ? val : isBlank(val) ? [] : [val]);
-        this._updOpts();
-        this.onTouched();
-    }
+	public registerOnTouched(fn: any): void { this.onTouched = fn; }
 
 	/**
 	 * @private
 	 */
-    onTouched() { }
+	public onChange(val: any): void {
+		// onChange used when there is not an formControlName
+		console.debug('select, onChange w/out formControlName', val);
+		this._values = (Array.isArray(val) ? val : isBlank(val) ? [] : [val]);
+		this._updOpts();
+		this.onTouched();
+	}
 
 	/**
 	 * @private
 	 */
-    setDisabledState(isDisabled: boolean) {
-        this.disabled = isDisabled;
-    }
+	public onTouched(): void {
+		// do nothing
+	}
 
 	/**
 	 * @private
 	 */
-    ngOnDestroy() {
-        this._form.deregister(this);
-    }
+	public setDisabledState(isDisabled: boolean): void {
+		this.disabled = isDisabled;
+	}
+
+	/**
+	 * @private
+	 */
+	public ngOnDestroy(): void {
+		this._form.deregister(this);
+	}
 
 }
