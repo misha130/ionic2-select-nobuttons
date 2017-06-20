@@ -102,14 +102,10 @@ export class SelectAlertless extends Ion implements AfterContentInit, ControlVal
 	public set _options(val: any) {
 		this.__options = val;
 		if (!this._multi) {
-			this.__options.forEach(option => {
+		this.__options.forEach(option => {
+				if (option.ionSelect.observers.some(d => d.closed === false)) return;
 				option.ionSelect.subscribe(selectedValues => {
-					try {
-						this.onChange(selectedValues);
-					}
-					catch (e) {
-						// do nothing
-					}
+					this.onChange(selectedValues);
 					this.ionChange.emit(selectedValues);
 					this._isOpen = false;
 					this.overlay.dismiss();
