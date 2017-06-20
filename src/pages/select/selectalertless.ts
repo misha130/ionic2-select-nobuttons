@@ -72,8 +72,6 @@ export class SelectAlertless extends Ion implements AfterContentInit, ControlVal
 		this._config = config;
 		this.setElementClass(`${this._componentName}`, false);
 
-		_form.register(this);
-
 		if (_item) {
 			this.id = 'sel-' + _item.registerInput('select');
 			this._labelId = 'lbl-' + _item.id;
@@ -326,7 +324,7 @@ export class SelectAlertless extends Ion implements AfterContentInit, ControlVal
 	 * @private
 	 */
 	public ngOnDestroy(): void {
-		this._form.deregister(this);
+
 	}
 
 }
