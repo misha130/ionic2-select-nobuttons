@@ -7,10 +7,19 @@
 <ion-content padding>
   <ion-item>
     <ion-label>Component</ion-label>
-    <select-alertless item-content [(ngModel)]="test">
+    <select-alertless item-content
+      [(ngModel)]="test">
       <ion-option>First</ion-option>
       <ion-option>Second</ion-option>
       <ion-option>Third</ion-option>
     </select-alertless>
+  </ion-item>
+  <ion-item>
+    <ion-label>Component</ion-label>
+    <ion-select [(ngModel)]="test">
+      <ion-option>First</ion-option>
+      <ion-option>Second</ion-option>
+      <ion-option>Third</ion-option>
+    </ion-select>
   </ion-item>
 </ion-content>

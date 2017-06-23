@@ -1,8 +1,9 @@
-import { AfterContentInit, HostListener, ContentChildren, Component, ElementRef, forwardRef, OnDestroy, Optional, Renderer, Input, QueryList, Output, EventEmitter, ViewEncapsulation } from '@angular/core';
+import { AfterContentInit, Component, ContentChildren, ElementRef, EventEmitter, HostListener, Input, OnDestroy, Optional, Output, QueryList, Renderer, ViewEncapsulation, forwardRef } from '@angular/core';
+import { Alert, App, Config, DeepLinker, Events, Form, Ion, Item, NavController, Option } from 'ionic-angular';
 import { ControlValueAccessor, NG_VALUE_ACCESSOR } from '@angular/forms';
+import { assert, deepCopy, deepEqual, isBlank, isCheckedProperty, isTrueProperty } from 'ionic-angular/util/util';
 
-import { Alert, App, Config, Form, Item, NavController, Option, Ion, Events } from 'ionic-angular';
-import { isBlank, isCheckedProperty, isTrueProperty, deepCopy } from 'ionic-angular/util/util';
+import { BaseInput } from 'ionic-angular/util/base-input'
 
 export const SELECT_VALUE_ACCESSOR: any = {
 	provide: NG_VALUE_ACCESSOR,
@@ -16,9 +17,6 @@ export const SELECT_VALUE_ACCESSOR: any = {
 	template:
 	'<div *ngIf="!_text" class="select-placeholder select-text">{{placeholder}}</div>' +
 	'<div *ngIf="_text" class="select-text">{{selectedText || _text}}</div>' +
-	'<div class="select-icon">' +
-	'<div class="select-icon-inner"></div>' +
-	'</div>' +
 	'<button aria-haspopup="true" ' +
 	'[id]="id" ' +
 	'ion-button="item-cover" ' +
@@ -29,15 +27,15 @@ export const SELECT_VALUE_ACCESSOR: any = {
 	host: {
 		'[class.select-disabled]': '_disabled'
 	},
-	providers: [SELECT_VALUE_ACCESSOR],
+	providers: [{ provide: NG_VALUE_ACCESSOR, useExisting: SelectAlertless, multi: true }],
 	encapsulation: ViewEncapsulation.None,
 })
-export class SelectAlertless extends Ion implements AfterContentInit, ControlValueAccessor, OnDestroy {
+export class SelectAlertless extends BaseInput<any> implements OnDestroy {
 	public id: string;
 	public overlay: Alert;
 
-	private _disabled: any = false;
-	private _labelId: string;
+	_disabled: any = false;
+	_labelId: string;
 	private _multi: boolean = false;
 	private _values: string[] = [];
 	private _texts: string[] = [];
@@ -47,7 +45,7 @@ export class SelectAlertless extends Ion implements AfterContentInit, ControlVal
 	_config: Config;
 	// tslint:disable-next-line:variable-name
 	private __options: QueryList<Option>;
-
+	_compareWith: (o1: any, o2: any) => boolean = isCheckedProperty;
 	@Input() public cancelText: string = 'Cancel';
 	@Input() public okText: string = 'OK';
 	@Input() public placeholder: string;
@@ -55,58 +53,61 @@ export class SelectAlertless extends Ion implements AfterContentInit, ControlVal
 	@Input() public interface: string = '';
 	@Input() public selectedText: string = '';
 
+	@Input()
+	set compareWith(fn: (o1: any, o2: any) => boolean) {
+		if (typeof fn !== 'function') {
+			throw new Error(`compareWith must be a function, but received ${JSON.stringify(fn)}`);
+		}
+		this._compareWith = fn;
+	}
+
 	@Output() public ionChange: EventEmitter<any> = new EventEmitter();
 	@Output() public ionCancel: EventEmitter<any> = new EventEmitter();
 	private close = () => (this.overlay ? this.overlay.dismiss() : '');
 	constructor(
 		private _app: App,
-		private _form: Form,
-		private config: Config,
+		form: Form,
+		public config: Config,
 		elementRef: ElementRef,
 		renderer: Renderer,
-		@Optional() public _item: Item,
-		@Optional() _nav: NavController,
+		@Optional() item: Item,
+		public deepLinker: DeepLinker,
 		events: Events,
 	) {
-		super(config, elementRef, renderer, 'select');
-		this._config = config;
-		this.setElementClass(`${this._componentName}`, false);
-
-		if (_item) {
-			this.id = 'sel-' + _item.registerInput('select');
-			this._labelId = 'lbl-' + _item.id;
-			this._item.setElementClass('item-select', true);
-		}
+		super(config, elementRef, renderer, 'select', [], form, item, null);
 		events.unsubscribe('select:close', this.close);
 		events.subscribe('select:close', this.close);
 	}
 
 	@HostListener('click', ['$event'])
-	public _click(ev: UIEvent): void {
-		if (ev.detail === 0) {
-			// do not continue if the click event came from a form submit
-			return;
-		}
+	_click(ev: UIEvent) {
 		ev.preventDefault();
 		ev.stopPropagation();
-		this.open();
+		this.open(ev);
 	}
 
 	@HostListener('keyup.space')
-	public _keyup(): void {
-		if (!this._isOpen) {
-			this.open();
-		}
+	_keyup() {
+		this.open();
+	}
+
+
+	/**
+	 * @hidden
+	 */
+	getValues(): any[] {
+		const values = Array.isArray(this._value) ? this._value : [this._value];
+		assert(this._multi || values.length <= 1, 'single only can have one value');
+		return values;
 	}
 
 	public set _options(val: any) {
 		this.__options = val;
 		if (!this._multi) {
-		this.__options.forEach(option => {
+			this.__options.forEach(option => {
 				if (option.ionSelect.observers.some(d => d.closed === false)) return;
 				option.ionSelect.subscribe(selectedValues => {
-					this.onChange(selectedValues);
-					this.ionChange.emit(selectedValues);
+					this.value = selectedValues
 					this._isOpen = false;
 					this.overlay.dismiss();
 				});
@@ -118,8 +119,8 @@ export class SelectAlertless extends Ion implements AfterContentInit, ControlVal
 		return this.__options;
 	}
 
-	public open(): void {
-		if (this._disabled) {
+	open(ev?: UIEvent) {
+		if (this.isFocus() || this._disabled) {
 			return;
 		}
 		// the user may have assigned some options specifically for the alert
@@ -184,10 +185,7 @@ export class SelectAlertless extends Ion implements AfterContentInit, ControlVal
 
 		this.overlay.addButton({
 			text: this.okText,
-			handler: (selectedValues: any) => {
-				this.onChange(selectedValues);
-				this.ionChange.emit(selectedValues);
-			},
+			handler: (selectedValues) => this.value = selectedValues
 		});
 
 		this.overlay.present(selectOptions);
@@ -211,27 +209,46 @@ export class SelectAlertless extends Ion implements AfterContentInit, ControlVal
 		return (this._multi ? this._texts : this._texts.join());
 	}
 
+	/**
+	 * @private
+	 */
 	@ContentChildren(Option)
 	set options(val: QueryList<Option>) {
 		this._options = val;
-
-		if (!this._values.length) {
+		const values = this.getValues();
+		if (values.length === 0) {
 			// there are no values set at this point
 			// so check to see who should be selected
-			this._values = val.filter(o => o.selected).map(o => o.value);
+			// we use writeValue() because we don't want to update ngModel
+			this.writeValue(val.filter(o => o.selected).map(o => o.value));
+		} else {
+			this._inputUpdated();
 		}
-
-		this._updOpts();
 	}
 
-	public _updOpts(): void {
-		this._texts = [];
+	_inputShouldChange(val: string[] | string): boolean {
+		return !deepEqual(this._value, val);
+	}
+
+	/**
+	 * TODO: REMOVE THIS
+	 * @hidden
+	 */
+	_inputChangeEvent(): any {
+		return this.value;
+	}
+
+	/**
+	 * @hidden
+	 */
+	_inputUpdated() {
+		this._texts.length = 0;
 
 		if (this._options) {
 			this._options.forEach(option => {
 				// check this option if the option's value is in the values array
-				option.selected = this._values.some(selectValue => {
-					return isCheckedProperty(selectValue, option.value);
+				option.selected = this.getValues().some(selectValue => {
+					return this._compareWith(selectValue, option.value);
 				});
 
 				if (option.selected) {
@@ -241,86 +258,7 @@ export class SelectAlertless extends Ion implements AfterContentInit, ControlVal
 		}
 
 		this._text = this._texts.join(', ');
-	}
-
-	/**
-	 * @input {boolean} If true, the user cannot interact with this element.
-	 */
-	@Input()
-	get disabled(): boolean {
-		return this._disabled;
-	}
-
-	set disabled(val: boolean) {
-		this._disabled = isTrueProperty(val);
-		this._item && this._item.setElementClass('item-select-disabled', this._disabled);
-	}
-
-	/**
-	 * @private
-	 */
-	public writeValue(val: any): void {
-		console.debug('select, writeValue', val);
-		this._values = (Array.isArray(val) ? val : isBlank(val) ? [] : [val]);
-		this._updOpts();
-	}
-
-	/**
-	 * @private
-	 */
-	public ngAfterContentInit(): void {
-		this._updOpts();
-	}
-
-	/**
-	 * @private
-	 */
-	public registerOnChange(fn: Function): void {
-		this._fn = fn;
-		this.onChange = (val: any) => {
-			console.debug('select, onChange', val);
-			fn(val);
-			this._values = (Array.isArray(val) ? val : isBlank(val) ? [] : [val]);
-			this._updOpts();
-			this.onTouched();
-		};
-	}
-
-	/**
-	 * @private
-	 */
-	public registerOnTouched(fn: any): void { this.onTouched = fn; }
-
-	/**
-	 * @private
-	 */
-	public onChange(val: any): void {
-		// onChange used when there is not an formControlName
-		console.debug('select, onChange w/out formControlName', val);
-		this._values = (Array.isArray(val) ? val : isBlank(val) ? [] : [val]);
-		this._updOpts();
-		this.onTouched();
-	}
-
-	/**
-	 * @private
-	 */
-	public onTouched(): void {
-		// do nothing
-	}
-
-	/**
-	 * @private
-	 */
-	public setDisabledState(isDisabled: boolean): void {
-		this.disabled = isDisabled;
-	}
-
-	/**
-	 * @private
-	 */
-	public ngOnDestroy(): void {
-
+		super._inputUpdated();
 	}
 
 }
