@@ -1,0 +1,11 @@
+.select-alertless .alert-button-group{
+    display:none
+}
+
+select-alertless {
+    display: -webkit-flex;
+    display: -ms-flexbox;
+    display: flex;
+    overflow: hidden;
+    max-width: 45%;
+}

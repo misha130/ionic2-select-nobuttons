@@ -13,10 +13,10 @@ export const SELECT_VALUE_ACCESSOR: any = {
 
 @Component({
 	selector: 'select-alertless',
-	styles: ['.select-alertless .alert-button-group{display:none}'],
 	template:
 	'<div *ngIf="!_text" class="select-placeholder select-text">{{placeholder}}</div>' +
 	'<div *ngIf="_text" class="select-text">{{selectedText || _text}}</div>' +
+	'<div class="select-icon"><div class="select-icon-inner"></div></div>'+
 	'<button aria-haspopup="true" ' +
 	'[id]="id" ' +
 	'ion-button="item-cover" ' +
